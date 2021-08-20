@@ -1,0 +1,165 @@
+---Data Profiling and Null Checks:
+
+---entity counts
+select count(*) from Attribute;
+select count(*) from Business;
+select count(*) from Category;
+select count(*) from Checkin;
+select count(*) from elite_years;
+select count(*) from friend;
+select count(*) from hours;
+select count(*) from photo;
+select count(*) from review;
+select count(*) from tip;
+select count(*) from user;
+
+---null checks
+
+select id from user where id is NULL;
+select id from user where name is NULL;
+select id from user where review_count is NULL;
+select id from user where yelping_since is NULL;
+select id from user where useful is NULL;
+select id from user where funny is NULL;
+select id from user where cool is NULL;
+select id from user where fans is NULL;
+select id from user where average_stars is NULL;
+select id from user where compliment_hot is NULL;
+select id from user where compliment_more is NULL;
+select id from user where compliment_profile is NULL;
+select id from user where compliment_cute is NULL;
+select id from user where compliment_list is NULL;
+select id from user where compliment_note is NULL;
+select id from user where compliment_plain is NULL;
+select id from user where compliment_cool is NULL;
+select id from user where compliment_funny is NULL;
+select id from user where compliment_writer is NULL;
+select id from user where compliment_photos is NULL;
+
+--- min max checks
+
+select min(stars), max(stars), avg(stars) from review;
+select min(stars), max(stars), avg(stars) from business;
+select min(likes), max(likes), avg(likes) from tip;
+select min(count), max(count), avg(count) from checkin;
+select min(review_count), max(review_count), avg(review_count) from user;
+
+
+
+---CTE tables
+
+with user_info as (
+
+select id, datediff(to_date(now()), to_date(yelping_since)) as active_days, review_count, fans, compliments, avg_stars,
+30*review_count/datediff(to_date(now()), to_date(yelping_since)) as reviews_per_month,
+case when datediff(to_date(now()), to_date(yelping_since)) < 365 then 'less than a year'
+	 when datediff(to_date(now()), to_date(yelping_since)) < 2*365 then '1-2 years'
+	 when datediff(to_date(now()), to_date(yelping_since)) < 3*365 then '2-3 years'
+	 else 'more than 3 years' end as years_active,
+case when review_count <50 then '<50 reviews'
+	 when review_count <=100 then '50-100 reviews'
+     when review_count <=200 then '101-200 reviews'
+     else '>200 reviews' end as review_bucket
+	 
+
+from users
+where id is not null
+and active_days >= 30
+and review_count >=10)
+
+
+review_info as (
+select review.id as review_id           -- review variables
+       ,review.stars
+       ,review.date as review_date
+       ,user.id as user_id              -- user variables
+       ,user.review_count
+       ,user.yelping_since
+       ,user.useful
+       ,user.funny
+       ,user.cool
+       ,user.fans
+       ,user.average_stars
+
+from review 
+inner join user on review.user_id = user.id)
+
+select city
+       ,category
+       ,avg(review_count) as av_rev_count			-- number of reviews per business within each group
+       ,count(business.id) as num_of_businesses,  
+
+case								-- add categorical variable for the "2-3 stars" and "4-5 stars" categories
+  when stars >= 2 and stars <= 3 then '2-3 stars'
+  when stars >= 4 and stars <= 5 then '4-5 stars'
+  else NULL
+end star_group
+
+from business 							-- city comes from the "business" table and category comes from the "category" table
+     left join category
+     on business.id = category.business_id
+
+where city = 'Las Vegas' and category = 'Restaurants'
+group by star_group; 
+
+
+
+select u.id, datediff(to_date(now()), to_date(yelping_since)) as active_yrs,
+
+
+
+
+
+
+---love hate count
+select has_love_hate, count(id) as num_reviews
+from(
+    select id, stars, date, case when lower(text) like '%love%' then 'love'
+                                 when lower(text) like '%hate%' then 'hate'
+                                 else 'None' end as has_love_hate
+    from review)
+group by has_love_hate
+
+---review vs fan count
+
+select review_bucket, round(avg(fans),1) as avg_fan_count
+from(
+    select id, review_count, case when review_count <50 then '<50 reviews'
+								  when review_count <=100 then '50-100 reviews'
+                                  when review_count <=200 then '101-200 reviews'
+                                  else '>200 reviews' end as review_bucket, fans
+    from user)
+group by review_bucket
+
+
+--- city wise groupings
+
+select city
+       ,category
+       ,avg(review_count) as av_rev_count			-- number of reviews per business within each group
+       ,count(business.id) as num_of_businesses,  
+
+case								-- add categorical variable for the "2-3 stars" and "4-5 stars" categories
+  when stars >= 2 and stars <= 3 then '2-3 stars'
+  when stars >= 4 and stars <= 5 then '4-5 stars'
+  else NULL
+end star_group
+
+from business 							-- city comes from the "business" table and category comes from the "category" table
+     left join category
+     on business.id = category.business_id
+
+where city = 'Las Vegas' and category = 'Restaurants'
+group by star_group;
+
+
+--- category groupings
+SELECT c.category,COUNT(b.name) AS
+Number_Of_Resturants,AVG(stars),AVG(review_count),b.city
+FROM (business b INNER JOIN hours h ON b.id = h.business_id)
+INNER JOIN category c ON c.business_id = b.id
+WHERE c.category IN
+("Chinese","Mexican","French","Italian","Korean","Japanese","Ind
+ian")
+GROUP BY c.category
+ORDER BY AVG(stars) DESC
